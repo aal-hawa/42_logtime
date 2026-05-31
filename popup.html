@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>42 Logtime Tracker</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Loading State -->
+    <div id="loading" class="state">
+      <div class="spinner"></div>
+      <p>Fetching your logtime...</p>
+    </div>
+
+    <!-- Error State -->
+    <div id="error" class="state hidden">
+      <div class="error-icon">⚠️</div>
+      <h3>Not Logged In</h3>
+      <p>Please open <a href="https://profile.intra.42.fr" target="_blank">profile.intra.42.fr</a> in a tab, then click the extension again.</p>
+      <button id="retry-btn" class="btn-primary">Retry</button>
+    </div>
+
+    <!-- Main Dashboard -->
+    <div id="dashboard" class="state hidden">
+      <!-- Header -->
+      <header class="header">
+        <div class="header-left">
+          <div class="logo">42</div>
+          <div>
+            <h1>Logtime Tracker</h1>
+            <p class="subtitle" id="user-login">@loading...</p>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button id="settings-btn" class="btn-icon" title="Settings">⚙</button>
+          <button id="refresh-btn" class="btn-icon" title="Refresh">↻</button>
+        </div>
+      </header>
+
+      <!-- ====== CURRENT MONTH (main focus) ====== -->
+      <div class="section section-highlight">
+        <div class="section-header">
+          <h3>📅 <span id="current-month-label">This Month</span></h3>
+          <span id="current-month-range" class="section-subtitle">—</span>
+        </div>
+
+        <!-- Big progress ring -->
+        <div class="month-progress">
+          <div class="progress-ring-container">
+            <svg class="progress-ring" viewBox="0 0 120 120">
+              <circle class="progress-ring-bg" cx="60" cy="60" r="52" />
+              <circle class="progress-ring-fill" id="month-ring" cx="60" cy="60" r="52" />
+            </svg>
+            <div class="progress-ring-text">
+              <span class="ring-hours" id="month-hours">0h</span>
+              <span class="ring-goal" id="month-goal-label">/ 160h</span>
+            </div>
+          </div>
+          <div class="month-details">
+            <div class="detail-row">
+              <span class="detail-label">🎯 Goal</span>
+              <span class="detail-value" id="month-goal">160h</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">✅ Done</span>
+              <span class="detail-value" id="month-done">0h</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">⏳ Remaining</span>
+              <span class="detail-value" id="month-remaining">0h</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">📊 Daily Avg</span>
+              <span class="detail-value" id="month-daily-avg">0h</span>
+            </div>
+            <div class="detail-row goal-only">
+              <span class="detail-label">🗓️ Days Left</span>
+              <span class="detail-value" id="month-days-left">0</span>
+            </div>
+            <div class="detail-row goal-only">
+              <span class="detail-label">🔥 Needed/Avail Day</span>
+              <span class="detail-value" id="month-needed-day">0h</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">📈 Days Active</span>
+              <span class="detail-value" id="month-active-days">0</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">⭐ Best Day</span>
+              <span class="detail-value" id="month-best-day">—</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">🕐 Today</span>
+              <span class="detail-value" id="month-today-hours">0h</span>
+            </div>
+            <div class="goal-reached-banner hidden" id="goal-reached-banner">
+              🎉 Goal reached! Great job!
+            </div>
+          </div>
+        </div>
+
+        <!-- Month heatmap -->
+        <div class="month-heatmap" id="current-month-heatmap"></div>
+      </div>
+
+      <!-- ====== PREVIOUS MONTH ====== -->
+      <div class="section">
+        <div class="section-header">
+          <h3>📊 <span id="prev-month-label">Last Month</span></h3>
+          <span id="prev-month-range" class="section-subtitle">—</span>
+        </div>
+        <div class="prev-month-grid">
+          <div class="prev-stat">
+            <span class="prev-stat-value" id="prev-total">0h</span>
+            <span class="prev-stat-label">Total</span>
+          </div>
+          <div class="prev-stat">
+            <span class="prev-stat-value" id="prev-avg">0h</span>
+            <span class="prev-stat-label">Daily Avg</span>
+          </div>
+          <div class="prev-stat">
+            <span class="prev-stat-value" id="prev-active">0</span>
+            <span class="prev-stat-label">Active Days</span>
+          </div>
+          <div class="prev-stat">
+            <span class="prev-stat-value" id="prev-best">0h</span>
+            <span class="prev-stat-label">Best Day</span>
+          </div>
+          <div class="prev-stat">
+            <span class="prev-stat-value" id="prev-goal-pct">0%</span>
+            <span class="prev-stat-label">Goal %</span>
+          </div>
+        </div>
+        <div class="month-heatmap" id="prev-month-heatmap"></div>
+      </div>
+
+      <!-- ====== THIS WEEK ====== -->
+      <div class="section">
+        <div class="section-header">
+          <h3>📅 This Week</h3>
+          <span id="week-range" class="section-subtitle">—</span>
+        </div>
+        <div class="weekly-grid" id="weekly-grid"></div>
+        <div class="weekly-total">
+          <div class="total-row">
+            <span>Weekly Total</span>
+            <span id="weekly-total-hours" class="total-value">0h</span>
+          </div>
+          <div class="progress-bar-container">
+            <div class="progress-bar" id="weekly-progress"></div>
+          </div>
+          <div class="progress-label">
+            <span id="weekly-percent">0%</span> of weekly goal (<span id="weekly-goal-display">0h</span>)
+          </div>
+        </div>
+      </div>
+
+      <!-- ====== LAST 14 DAYS ====== -->
+      <div class="section">
+        <div class="section-header">
+          <h3>🕐 Last 14 Days</h3>
+        </div>
+        <div class="days-list" id="days-list"></div>
+      </div>
+
+      <!-- ====== RAW DATA DEBUG ====== -->
+      <div class="section">
+        <div class="section-header">
+          <h3>🔍 Raw API Data</h3>
+          <button id="debug-toggle" class="btn-icon" title="Toggle" style="font-size:11px;">▼</button>
+        </div>
+        <div id="debug-panel" class="debug-panel">
+          <div class="debug-url" id="debug-url"></div>
+          <div class="debug-today-key" id="debug-today-key"></div>
+          <div class="debug-data" id="debug-data"></div>
+        </div>
+      </div>
+
+      <footer class="footer">
+        42 Logtime Tracker v1.1
+      </footer>
+    </div>
+
+    <!-- ====== SETTINGS PANEL ====== -->
+    <div id="settings" class="state hidden">
+      <header class="header">
+        <div class="header-left">
+          <button id="settings-back" class="btn-icon">←</button>
+          <div>
+            <h1>Settings</h1>
+          </div>
+        </div>
+      </header>
+
+      <div class="settings-body">
+        <div class="setting-group">
+          <h4>🎯 Monthly Goal</h4>
+          <p class="setting-desc">How many hours do you want to log per month?</p>
+          <div class="setting-input-row">
+            <input type="number" id="setting-monthly-goal" min="0" max="744" step="1" value="160" />
+            <span class="setting-unit">hours</span>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <h4>📅 Available Days</h4>
+          <p class="setting-desc">Which days of the week are you available to log hours?</p>
+          <div class="day-picker" id="day-picker">
+            <button class="day-pick-btn active" data-day="1">Mon</button>
+            <button class="day-pick-btn active" data-day="2">Tue</button>
+            <button class="day-pick-btn active" data-day="3">Wed</button>
+            <button class="day-pick-btn active" data-day="4">Thu</button>
+            <button class="day-pick-btn active" data-day="5">Fri</button>
+            <button class="day-pick-btn" data-day="6">Sat</button>
+            <button class="day-pick-btn" data-day="7">Sun</button>
+          </div>
+          <div class="setting-calc" id="setting-weekly-calc">
+            Weekly goal: <strong id="calc-weekly">37.3h</strong> (monthly ÷ 30 × <span id="calc-days-count">5</span> days)
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <h4>🔥 Active Day Threshold</h4>
+          <p class="setting-desc">Minimum hours to count a day as "active"</p>
+          <div class="setting-input-row">
+            <input type="number" id="setting-active-threshold" min="0" max="24" step="0.5" value="1" />
+            <span class="setting-unit">hours</span>
+          </div>
+        </div>
+
+        <button id="save-settings" class="btn-primary btn-full">Save Settings</button>
+
+        <div class="setting-group" style="margin-top:20px; opacity:0.6;">
+          <h4>About</h4>
+          <p class="setting-desc">
+            This extension reads your logtime directly from 42 Intra using your existing login session.
+            No OAuth registration needed. Your data stays in your browser.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

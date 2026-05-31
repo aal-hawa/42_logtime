@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "42 Logtime Tracker",
+  "description": "Track your monthly logtime directly from 42 Intra — no OAuth needed!",
+  "version": "1.1.0",
+  "permissions": ["storage", "scripting"],
+  "host_permissions": [
+    "https://profile.intra.42.fr/*",
+    "https://profile-v3.intra.42.fr/*",
+    "https://translate.intra.42.fr/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}
