@@ -611,9 +611,26 @@ function updateWeeklyCalc() {
   const activeBtns = $$("#day-picker .day-pick-btn.active");
   const daysCount = activeBtns.length || 1;
   const weekly = (monthly * 7) / 30;
+  const dailyTarget = weekly / daysCount;
 
   $("#calc-weekly").textContent = formatDecimal(weekly * 60) + "h";
-  $("#calc-days-count").textContent = daysCount;
+  $("#calc-daily-target").textContent = formatDecimal(dailyTarget * 60) + "h";
+
+  const saveBtn = $("#save-settings");
+  const warning = $("#calc-warning");
+
+  if (dailyTarget > 24) {
+    warning.style.display = "block";
+    warning.innerHTML = `⚠️ Impossible goal: Requires <strong>${formatDecimal(dailyTarget * 60)}h</strong> per available day! (Max 24h)`;
+    saveBtn.disabled = true;
+    saveBtn.style.opacity = "0.5";
+    saveBtn.style.cursor = "not-allowed";
+  } else {
+    warning.style.display = "none";
+    saveBtn.disabled = false;
+    saveBtn.style.opacity = "1";
+    saveBtn.style.cursor = "pointer";
+  }
 }
 
 function showToast(message) {
