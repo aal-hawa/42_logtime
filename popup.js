@@ -327,7 +327,9 @@ function renderCurrentMonth() {
 
   // Calculate available days left in the month
   let availDaysLeft = 0;
+  let calendarDaysLeft = 0;
   for (let d = new Date(now); d <= lastDay; d.setDate(d.getDate() + 1)) {
+    calendarDaysLeft++;
     const jsDay = d.getDay() === 0 ? 7 : d.getDay(); // 1=Mon...7=Sun
     if (availDays.includes(jsDay)) availDaysLeft++;
   }
@@ -369,9 +371,9 @@ function renderCurrentMonth() {
     needEl.textContent = `${formatDecimal(neededPerAvailDay * 60)}h`;
     needEl.className = `detail-value ${neededPerAvailDay > 8 ? "negative" : neededPerAvailDay > 5 ? "warning" : "positive"}`;
 
-    // Days left = available days left
+    // Days left = calendar days left and available days left
     const daysLeftEl = $("#month-days-left");
-    daysLeftEl.textContent = `${availDaysLeft} avail`;
+    daysLeftEl.textContent = `${calendarDaysLeft} days (${availDaysLeft} avail)`;
     daysLeftEl.className = `detail-value ${availDaysLeft <= 3 ? "negative" : availDaysLeft <= 7 ? "warning" : ""}`;
   } else {
     goalOnlyRows.forEach(r => r.style.display = "none");
@@ -516,6 +518,18 @@ function renderWeeklyGrid() {
   progressEl.style.width = weekPct + "%";
   progressEl.style.background = weekPct >= 80 ? "#10b981" : weekPct >= 50 ? "#f59e0b" : "#ef4444";
   $("#weekly-percent").textContent = weekPct + "%";
+
+  const weekRemEl = $("#week-remaining");
+  if (weekRemEl) {
+    const weeklyRemainingMinutes = Math.max(0, weeklyGoal * 60 - totalMinutes);
+    if (weeklyRemainingMinutes > 0) {
+      weekRemEl.textContent = formatDecimal(weeklyRemainingMinutes) + "h";
+      weekRemEl.className = `detail-value ${weekPct >= 50 ? "warning" : "negative"}`;
+    } else {
+      weekRemEl.textContent = "✅ Done!";
+      weekRemEl.className = "detail-value positive";
+    }
+  }
 }
 
 // ==================== DAYS LIST ====================
@@ -578,8 +592,9 @@ function renderSettingsPanel() {
     };
   });
 
-  // Update calc when monthly goal changes
+  // Update calc when inputs change
   $("#setting-monthly-goal").oninput = () => updateWeeklyCalc();
+  $("#setting-active-threshold").oninput = () => updateWeeklyCalc();
 
   $("#settings-back").onclick = () => { showState("dashboard"); };
 
@@ -608,6 +623,7 @@ function renderSettingsPanel() {
 
 function updateWeeklyCalc() {
   const monthly = parseFloat($("#setting-monthly-goal").value) || 160;
+  const threshold = parseFloat($("#setting-active-threshold").value) || 1;
   const activeBtns = $$("#day-picker .day-pick-btn.active");
   const daysCount = activeBtns.length || 1;
   const weekly = (monthly * 7) / 30;
@@ -622,6 +638,12 @@ function updateWeeklyCalc() {
   if (dailyTarget > 24) {
     warning.style.display = "block";
     warning.innerHTML = `⚠️ Impossible goal: Requires <strong>${formatDecimal(dailyTarget * 60)}h</strong> per available day! (Max 24h)`;
+    saveBtn.disabled = true;
+    saveBtn.style.opacity = "0.5";
+    saveBtn.style.cursor = "not-allowed";
+  } else if (threshold > 24) {
+    warning.style.display = "block";
+    warning.innerHTML = `⚠️ Impossible threshold: Active Day Threshold cannot exceed 24 hours.`;
     saveBtn.disabled = true;
     saveBtn.style.opacity = "0.5";
     saveBtn.style.cursor = "not-allowed";
