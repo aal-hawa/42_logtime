@@ -20,7 +20,9 @@ function formatHours(minutes) {
 }
 
 function formatDecimal(minutes) {
-  return (minutes / 60).toFixed(1);
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  return `${h}.${m.toString().padStart(2, "0")}`;
 }
 
 function getHoursColor(minutes) {
@@ -98,13 +100,12 @@ const DEFAULT_SETTINGS = {
 };
 
 function getWeeklyGoal(settings) {
-  const availCount = (settings.availableDays || [1,2,3,4,5]).length;
-  return (settings.monthlyGoalHours / 30) * availCount;
+  return (settings.monthlyGoalHours * 7) / 30;
 }
 
 function getDailyTarget(settings) {
   const availCount = (settings.availableDays || [1,2,3,4,5]).length;
-  return availCount > 0 ? settings.monthlyGoalHours / 30 : 0;
+  return availCount > 0 ? getWeeklyGoal(settings) / availCount : 0;
 }
 
 async function loadSettings() {
@@ -175,11 +176,11 @@ async function findIntraTab() {
   const tabs = await chrome.tabs.query({});
   const activeTabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const activeIntra = activeTabs.find(t =>
-    t.url?.includes("profile.intra.42.fr") || t.url?.includes("profile-v3.intra.42.fr")
+    t.url?.includes(".intra.42.fr")
   );
   if (activeIntra) return activeIntra;
   return tabs.find(t =>
-    t.url?.includes("profile.intra.42.fr") || t.url?.includes("profile-v3.intra.42.fr")
+    t.url?.includes(".intra.42.fr")
   ) || null;
 }
 
@@ -213,15 +214,13 @@ function fetchAllFromIntraPage() {
 
   if (!login) return { login: null };
 
-  const origin = window.location.origin;
-
   return Promise.all([
     fetch(`https://translate.intra.42.fr/users/${login}/locations_stats`, {
       credentials: "include",
       headers: { Accept: "application/json" },
     }).then(r => r.ok ? r.json() : null),
 
-    fetch(`${origin}/users/${login}`, {
+    fetch(`https://profile.intra.42.fr/users/${login}`, {
       credentials: "include",
     }).then(r => r.ok ? r.text() : null),
   ]).then(([logtime, profileHtml]) => {
@@ -288,6 +287,9 @@ function renderCurrentMonth() {
   let bestDayStr = "";
   let daysWithData = 0;
   let todayMinutes = 0;
+  let passedAvailDays = 0;
+
+  const availDays = settings.availableDays || [1,2,3,4,5];
 
   days.forEach(d => {
     const dateStr = formatDate(d);
@@ -297,6 +299,10 @@ function renderCurrentMonth() {
     // Use string comparison: only sum days up to and including today
     if (dateStr <= todayStr) {
       daysWithData++;
+      
+      const jsDay = d.getDay() === 0 ? 7 : d.getDay();
+      if (availDays.includes(jsDay)) passedAvailDays++;
+
       if (mins > 0) {
         totalMinutes += mins;
         activeDays++;
@@ -317,10 +323,9 @@ function renderCurrentMonth() {
   const goalHours = settings.monthlyGoalHours;
   const remainingMinutes = Math.max(0, goalHours * 60 - totalMinutes);
   const remainingHours = remainingMinutes / 60;
-  const dailyAvg = daysWithData > 0 ? totalHours / daysWithData : 0;
+  const dailyAvg = passedAvailDays > 0 ? totalHours / passedAvailDays : 0;
 
   // Calculate available days left in the month
-  const availDays = settings.availableDays || [1,2,3,4,5];
   let availDaysLeft = 0;
   for (let d = new Date(now); d <= lastDay; d.setDate(d.getDate() + 1)) {
     const jsDay = d.getDay() === 0 ? 7 : d.getDay(); // 1=Mon...7=Sun
@@ -350,7 +355,7 @@ function renderCurrentMonth() {
   remEl.className = `detail-value ${remainingMinutes > 0 ? (remainingHours > goalHours * 0.5 ? "negative" : "warning") : "positive"}`;
 
   const avgEl = $("#month-daily-avg");
-  avgEl.textContent = `${dailyAvg.toFixed(1)}h`;
+  avgEl.textContent = `${formatDecimal(dailyAvg * 60)}h`;
   avgEl.className = `detail-value ${dailyAvg >= 2 ? "positive" : dailyAvg >= 1 ? "warning" : "negative"}`;
 
   // Show/hide goal-only rows and banner
@@ -361,7 +366,7 @@ function renderCurrentMonth() {
     goalBanner.classList.add("hidden");
 
     const needEl = $("#month-needed-day");
-    needEl.textContent = `${neededPerAvailDay.toFixed(1)}h`;
+    needEl.textContent = `${formatDecimal(neededPerAvailDay * 60)}h`;
     needEl.className = `detail-value ${neededPerAvailDay > 8 ? "negative" : neededPerAvailDay > 5 ? "warning" : "positive"}`;
 
     // Days left = available days left
@@ -419,7 +424,7 @@ function renderPrevMonth() {
 
   $("#prev-total").textContent = formatDecimal(totalMinutes) + "h";
   $("#prev-total").style.color = getHoursColor(totalMinutes);
-  $("#prev-avg").textContent = dailyAvg.toFixed(1) + "h";
+  $("#prev-avg").textContent = formatDecimal(dailyAvg * 60) + "h";
   $("#prev-active").textContent = activeDays.toString();
   $("#prev-best").textContent = bestDayMinutes > 0 ? formatDecimal(bestDayMinutes) + "h" : "—";
   const goalPctEl = $("#prev-goal-pct");
@@ -476,7 +481,7 @@ function renderWeeklyGrid() {
   rangeEl.textContent = `${formatDateShort(formatDate(monday))} – ${formatDateShort(formatDate(sunday))}`;
 
   const weeklyGoal = getWeeklyGoal(settings);
-  $("#weekly-goal-display").textContent = weeklyGoal.toFixed(1) + "h";
+  $("#weekly-goal-display").textContent = formatDecimal(weeklyGoal * 60) + "h";
 
   const gridEl = $("#weekly-grid");
   gridEl.innerHTML = "";
@@ -605,9 +610,9 @@ function updateWeeklyCalc() {
   const monthly = parseFloat($("#setting-monthly-goal").value) || 160;
   const activeBtns = $$("#day-picker .day-pick-btn.active");
   const daysCount = activeBtns.length || 1;
-  const weekly = (monthly / 30) * daysCount;
+  const weekly = (monthly * 7) / 30;
 
-  $("#calc-weekly").textContent = weekly.toFixed(1) + "h";
+  $("#calc-weekly").textContent = formatDecimal(weekly * 60) + "h";
   $("#calc-days-count").textContent = daysCount;
 }
 
